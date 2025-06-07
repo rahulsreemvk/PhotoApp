@@ -1,151 +1,146 @@
+# streamlit_app.py
 import streamlit as st
-import pandas as pd
-import math
-from pathlib import Path
+import requests
+import numpy as np
+import cv2
+from PIL import Image
+# import face_recognition
+import tempfile
+import os
 
-# Set the title and favicon that appear in the Browser's tab bar.
-st.set_page_config(
-    page_title='GDP dashboard',
-    page_icon=':earth_americas:', # This is an emoji shortcode. Could be a URL too.
-)
+# --- API CONFIG ---
+API_URL = "https://openrouter.ai/api/v1/chat/completions"
+API_KEY = os.getenv("OPENROUTER_API_KEY")
+HEADERS = {
+    "Authorization": f"Bearer {API_KEY}",
+    "Content-Type": "application/json"
+}
 
-# -----------------------------------------------------------------------------
-# Declare some useful functions.
+# --- FEATURE EXTRACTION ---
+def extract_visual_features(image: Image.Image):
+    image_cv = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+    resized = cv2.resize(image_cv, (224, 224))
+    h, w = resized.shape[:2]
+    gray = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
 
-@st.cache_data
-def get_gdp_data():
-    """Grab GDP data from a CSV file.
+    sharpness = cv2.Laplacian(gray, cv2.CV_64F).var()
+    brightness = np.mean(gray)
+    contrast = np.std(gray)
 
-    This uses caching to avoid having to read the file every time. If we were
-    reading from an HTTP endpoint instead of a file, it's a good idea to set
-    a maximum age to the cache with the TTL argument: @st.cache_data(ttl='1d')
-    """
+    (B, G, R) = cv2.split(resized.astype("float"))
+    rg = np.absolute(R - G)
+    yb = np.absolute(0.5 * (R + G) - B)
+    colorfulness = np.sqrt(np.mean(rg**2) + np.mean(yb**2))
 
-    # Instead of a CSV on disk, you could read from an HTTP endpoint here too.
-    DATA_FILENAME = Path(__file__).parent/'data/gdp_data.csv'
-    raw_gdp_df = pd.read_csv(DATA_FILENAME)
+    chans = cv2.split(resized)
+    hist_features = {}
+    for chan, name in zip(chans, ['b', 'g', 'r']):
+        hist = cv2.calcHist([chan], [0], None, [8], [0, 256])
+        hist = cv2.normalize(hist, hist).flatten()
+        hist_features[f"{name}_histogram"] = hist.tolist()
 
-    MIN_YEAR = 1960
-    MAX_YEAR = 2022
+    center_offset = 1.0
+    try:
+        saliency = cv2.saliency.StaticSaliencySpectralResidual_create()
+        success, saliencyMap = saliency.computeSaliency(resized)
+        if success:
+            saliencyMap = (saliencyMap * 255).astype("uint8")
+            moments = cv2.moments(saliencyMap)
+            if moments["m00"] != 0:
+                cx = int(moments["m10"] / moments["m00"])
+                cy = int(moments["m01"] / moments["m00"])
+                center_offset = np.linalg.norm([cx - w/2, cy - h/2]) / (w/2)
+    except:
+        pass
 
-    # The data above has columns like:
-    # - Country Name
-    # - Country Code
-    # - [Stuff I don't care about]
-    # - GDP for 1960
-    # - GDP for 1961
-    # - GDP for 1962
-    # - ...
-    # - GDP for 2022
-    #
-    # ...but I want this instead:
-    # - Country Name
-    # - Country Code
-    # - Year
-    # - GDP
-    #
-    # So let's pivot all those year-columns into two: Year and GDP
-    gdp_df = raw_gdp_df.melt(
-        ['Country Code'],
-        [str(x) for x in range(MIN_YEAR, MAX_YEAR + 1)],
-        'Year',
-        'GDP',
-    )
-
-    # Convert years from string to integers
-    gdp_df['Year'] = pd.to_numeric(gdp_df['Year'])
-
-    return gdp_df
-
-gdp_df = get_gdp_data()
-
-# -----------------------------------------------------------------------------
-# Draw the actual page
-
-# Set the title that appears at the top of the page.
-'''
-# :earth_americas: GDP dashboard
-
-Browse GDP data from the [World Bank Open Data](https://data.worldbank.org/) website. As you'll
-notice, the data only goes to 2022 right now, and datapoints for certain years are often missing.
-But it's otherwise a great (and did I mention _free_?) source of data.
-'''
-
-# Add some spacing
-''
-''
-
-min_value = gdp_df['Year'].min()
-max_value = gdp_df['Year'].max()
-
-from_year, to_year = st.slider(
-    'Which years are you interested in?',
-    min_value=min_value,
-    max_value=max_value,
-    value=[min_value, max_value])
-
-countries = gdp_df['Country Code'].unique()
-
-if not len(countries):
-    st.warning("Select at least one country")
-
-selected_countries = st.multiselect(
-    'Which countries would you like to view?',
-    countries,
-    ['DEU', 'FRA', 'GBR', 'BRA', 'MEX', 'JPN'])
-
-''
-''
-''
-
-# Filter the data
-filtered_gdp_df = gdp_df[
-    (gdp_df['Country Code'].isin(selected_countries))
-    & (gdp_df['Year'] <= to_year)
-    & (from_year <= gdp_df['Year'])
-]
-
-st.header('GDP over time', divider='gray')
-
-''
-
-st.line_chart(
-    filtered_gdp_df,
-    x='Year',
-    y='GDP',
-    color='Country Code',
-)
-
-''
-''
+    aspect_ratio = round(image.width / image.height, 2)
+    face_count = 0
+    try:
+        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+        gray_img = cv2.cvtColor(image_cv, cv2.COLOR_BGR2GRAY)
+        faces = face_cascade.detectMultiScale(gray_img, 1.1, 4)
+        face_count = len(faces)
+    except:
+        face_count = 0
 
 
-first_year = gdp_df[gdp_df['Year'] == from_year]
-last_year = gdp_df[gdp_df['Year'] == to_year]
+    edges = cv2.Canny(gray, 100, 200)
+    edge_density = np.mean(edges > 0)
+    lighting_std = np.std(resized)
+    lighting_mean = np.mean(resized)
+    blur = cv2.GaussianBlur(gray, (9, 9), 0)
+    blur_score = np.mean(cv2.absdiff(gray, blur))
 
-st.header(f'GDP in {to_year}', divider='gray')
+    features = {
+        "sharpness": round(sharpness, 2),
+        "blur_score": round(blur_score, 2),
+        "brightness": round(brightness, 2),
+        "contrast": round(contrast, 2),
+        "colorfulness": round(colorfulness, 2),
+        "edge_density": round(edge_density, 4),
+        "lighting_mean": round(lighting_mean, 2),
+        "lighting_std": round(lighting_std, 2),
+        "center_offset": round(center_offset, 2),
+        "aspect_ratio": aspect_ratio,
+        "face_count": face_count
+    }
+    features.update(hist_features)
+    return features
 
-''
+# --- API CALL ---
+def query_deepseek(prompt):
+    payload = {
+        "model": "deepseek-ai/deepseek-coder:free",
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": 1000,
+        "temperature": 0.7,
+        "top_p": 0.9
+    }
+    res = requests.post(API_URL, headers=HEADERS, json=payload)
+    res.raise_for_status()
+    return res.json()["choices"][0]["message"]["content"]
 
-cols = st.columns(4)
+# --- Streamlit App ---
+st.set_page_config(page_title="Photo Critique AI", layout="wide")
+st.title("📷 AI Photo Critique & Chat")
 
-for i, country in enumerate(selected_countries):
-    col = cols[i % len(cols)]
+if "history" not in st.session_state:
+    st.session_state.history = []
+    st.session_state.features = None
+    st.session_state.critique = None
 
-    with col:
-        first_gdp = first_year[first_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-        last_gdp = last_year[last_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
+# --- Upload Image ---
+uploaded = st.file_uploader("Upload a photo for critique", type=["jpg", "jpeg", "png"])
+if uploaded:
+    image = Image.open(uploaded).convert("RGB")
+    st.image(image, caption="Uploaded Image", use_column_width=True)
+    features = extract_visual_features(image)
+    st.session_state.features = features
 
-        if math.isnan(first_gdp):
-            growth = 'n/a'
-            delta_color = 'off'
-        else:
-            growth = f'{last_gdp / first_gdp:,.2f}x'
-            delta_color = 'normal'
+    prompt = f"""
+You are an expert photography critic. Based on these image characteristics:
+{features}\n\nGive a critique (score out of 10) and suggestions.
+"""
+    critique = query_deepseek(prompt)
+    st.session_state.critique = critique
+    st.markdown("### 📝 Critique")
+    st.markdown(critique)
+    st.session_state.history.append(("Critique", critique))
 
-        st.metric(
-            label=f'{country} GDP',
-            value=f'{last_gdp:,.0f}B',
-            delta=growth,
-            delta_color=delta_color
-        )
+# --- Chat Interface ---
+if st.session_state.critique:
+    st.markdown("---")
+    st.markdown("### 💬 Ask Questions About the Photo")
+    user_q = st.text_input("Ask a question or upload a new photo")
+    if user_q:
+        context_prompt = f"The previous critique was: {st.session_state.critique}\nUser question: {user_q}"
+        answer = query_deepseek(context_prompt)
+        st.markdown("**Answer:**")
+        st.write(answer)
+        st.session_state.history.append(("Q: " + user_q, answer))
+
+# --- History ---
+if st.session_state.history:
+    with st.expander("📜 View Session History"):
+        for q, a in st.session_state.history:
+            st.markdown(f"**{q}**\n{a}")

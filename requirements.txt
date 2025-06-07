@@ -1,2 +1,8 @@
 streamlit
 pandas
+#opencv-python-headless
+numpy
+Pillow
+#face-recognition
+requests
+opencv-contrib-python
