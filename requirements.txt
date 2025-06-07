@@ -6,3 +6,9 @@ Pillow
 #face-recognition
 requests
 opencv-contrib-python
+torch
+torchvision
+scikit-learn
+transformers
+mediapipe
+requests

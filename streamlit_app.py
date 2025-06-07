@@ -4,9 +4,14 @@ import requests
 import numpy as np
 import cv2
 from PIL import Image
-# import face_recognition
+import mediapipe as mp
 import tempfile
 import os
+import torch
+import torch.nn as nn
+import torchvision.transforms as transforms
+from torchvision import models
+from transformers import CLIPProcessor, CLIPModel
 
 # --- API CONFIG ---
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -15,6 +20,37 @@ HEADERS = {
     "Authorization": f"Bearer {API_KEY}",
     "Content-Type": "application/json"
 }
+
+# --- AESTHETIC MODEL SETUP ---
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+class AestheticPredictor(nn.Module):
+    def __init__(self, input_dim=512):
+        super(AestheticPredictor, self).__init__()
+        self.model = nn.Sequential(
+            nn.Linear(input_dim, 256),
+            nn.ReLU(),
+            nn.Linear(256, 1),
+        )
+
+    def forward(self, x):
+        return self.model(x)
+
+# Load aesthetic predictor weights (you can host on public URL or relative path if deployed)
+@st.cache_resource
+def load_aesthetic_model():
+    mlp = AestheticPredictor(input_dim=512).to(device)
+    model_path = "aesthetic_mlp.pt"  # Ensure it's present in the deployed root or use huggingface hub
+    mlp.load_state_dict(torch.load(model_path, map_location=device))
+    mlp.eval()
+    return mlp
+
+# Load CLIP model for embeddings
+@st.cache_resource
+def load_clip_model():
+    model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(device)
+    processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+    return model, processor
 
 # --- FEATURE EXTRACTION ---
 def extract_visual_features(image: Image.Image):
@@ -55,14 +91,18 @@ def extract_visual_features(image: Image.Image):
 
     aspect_ratio = round(image.width / image.height, 2)
     face_count = 0
+    
+    mp_face_detection = mp.solutions.face_detection
+
+    def count_faces(image_cv):
+        with mp_face_detection.FaceDetection(model_selection=1, min_detection_confidence=0.5) as fd:
+            results = fd.process(cv2.cvtColor(image_cv, cv2.COLOR_BGR2RGB))
+            return len(results.detections) if results.detections else 0
+
     try:
-        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-        gray_img = cv2.cvtColor(image_cv, cv2.COLOR_BGR2GRAY)
-        faces = face_cascade.detectMultiScale(gray_img, 1.1, 4)
-        face_count = len(faces)
+        face_count = count_faces(image_cv)
     except:
         face_count = 0
-
 
     edges = cv2.Canny(gray, 100, 200)
     edge_density = np.mean(edges > 0)
@@ -87,6 +127,15 @@ def extract_visual_features(image: Image.Image):
     features.update(hist_features)
     return features
 
+# --- Aesthetic Scoring ---
+def score_image(image: Image.Image, mlp, clip_model, processor):
+    inputs = processor(images=image, return_tensors="pt").to(device)
+    with torch.no_grad():
+        image_features = clip_model.get_image_features(**inputs)
+        image_features /= image_features.norm(p=2, dim=-1, keepdim=True)
+        score = mlp(image_features).item()
+    return round(score, 2)
+
 # --- API CALL ---
 def query_deepseek(prompt):
     payload = {
@@ -102,12 +151,16 @@ def query_deepseek(prompt):
 
 # --- Streamlit App ---
 st.set_page_config(page_title="Photo Critique AI", layout="wide")
-st.title("📷 AI Photo Critique & Chat")
+st.title("📷 AI Photo Critique")
 
 if "history" not in st.session_state:
     st.session_state.history = []
     st.session_state.features = None
     st.session_state.critique = None
+    st.session_state.score = None
+
+mlp_model = load_aesthetic_model()
+clip_model, clip_processor = load_clip_model()
 
 # --- Upload Image ---
 uploaded = st.file_uploader("Upload a photo for critique", type=["jpg", "jpeg", "png"])
@@ -117,9 +170,17 @@ if uploaded:
     features = extract_visual_features(image)
     st.session_state.features = features
 
+    score = score_image(image, mlp_model, clip_model, clip_processor)
+    st.session_state.score = score
+    st.markdown(f"### 🌟 Aesthetic Score: {score}/10")
+
     prompt = f"""
 You are an expert photography critic. Based on these image characteristics:
-{features}\n\nGive a critique (score out of 10) and suggestions.
+{features}
+
+Aesthetic score (out of 10): {score}
+
+Provide a detailed critique and improvement suggestions.
 """
     critique = query_deepseek(prompt)
     st.session_state.critique = critique
