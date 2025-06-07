@@ -11,4 +11,3 @@ torchvision
 scikit-learn
 transformers
 mediapipe
-requests
