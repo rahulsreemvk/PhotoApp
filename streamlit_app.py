@@ -1,5 +1,7 @@
 # streamlit_app.py
 import streamlit as st
+import torch
+from transformers import CLIPProcessor, CLIPModel
 import requests
 import numpy as np
 import cv2
@@ -7,11 +9,10 @@ from PIL import Image
 import mediapipe as mp
 import tempfile
 import os
-import torch
 import torch.nn as nn
 import torchvision.transforms as transforms
 from torchvision import models
-from transformers import CLIPProcessor, CLIPModel
+
 
 # --- API CONFIG ---
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
