@@ -1,7 +1,8 @@
 # streamlit_app.py
 import streamlit as st
 import torch
-from transformers import CLIPProcessor, CLIPModel
+from transformers import CLIPProcessor
+from transformers import CLIPModel
 import requests
 import numpy as np
 import cv2
