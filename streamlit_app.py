@@ -141,9 +141,9 @@ def score_image(image: Image.Image, mlp, clip_model, processor):
 # --- API CALL ---
 def query_deepseek(prompt):
     payload = {
-        "model": "deepseek-ai/deepseek-coder:free",
+        "model": "deepseek/deepseek-r1-0528:free",
         "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": 1000,
+        "max_tokens": 10000,
         "temperature": 0.7,
         "top_p": 0.9
     }
