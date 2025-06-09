@@ -28,7 +28,7 @@ Include suggestions to improve the photo. Format clearly.
     payload = {
         "model": "deepseek-ai/deepseek-coder:free",
         "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": 800,
+        "max_tokens": 10000,
         "temperature": 0.7
     }
 
