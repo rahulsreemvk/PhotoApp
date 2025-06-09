@@ -4,7 +4,7 @@ from PIL import Image
 import os
 
 # --- Backend API for GPU processing ---
-API_URL = "http://<your-paperspace-ip>:8000/analyze/"  # Replace with real IP
+API_URL = "https://5e0f-172-83-13-4.ngrok-free.app/:8000/analyze/"  # Replace with real IP
 
 # --- OpenRouter API Config ---
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
