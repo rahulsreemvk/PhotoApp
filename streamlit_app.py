@@ -26,7 +26,7 @@ Please provide a critique of the image, pointing out strengths and weaknesses.
 Include suggestions to improve the photo. Format clearly.
 """
     payload = {
-        "model": "deepseek-ai/deepseek-coder:free",
+        "model": "deepseek/deepseek-r1-0528:free",
         "messages": [{"role": "user", "content": prompt}],
         "max_tokens": 10000,
         "temperature": 0.7
