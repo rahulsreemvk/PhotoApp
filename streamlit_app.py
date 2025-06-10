@@ -17,14 +17,29 @@ HEADERS = {
 # --- DeepSeek Prompt Function ---
 def get_critique_from_openrouter(features, caption, score):
     prompt = f"""
-You are a professional photography critic.
-Here is a photo description: "{caption}"
-Aesthetic score: {score}/10
-Technical features: {features}
+You are a professional photography critic analyzing a photograph of {caption}.
+You will see the image along with its extracted technical features and an aesthetic score of {score:.2f}.
 
-Please provide a critique of the image, pointing out strengths and weaknesses.
-Include suggestions to improve the photo. Format clearly.
+Critically assess the photo in terms of:
+- Composition (rule of thirds, symmetry, center framing, negative space)
+- Lighting, exposure, sharpness, clarity, clutter
+- Whether the visual choices serve the subject and artistic intent
+
+Do not blindly apply the rule of thirds — consider the context and possible creative choices.
+Begin with a 1-10 rating, and follow with a short but insightful critique that acknowledges what works and what could be improved.
+
+Technical features:
+{features}
 """
+#     prompt = f"""
+# You are a professional photography critic.
+# Here is a photo description: "{caption}"
+# Aesthetic score: {score}/10
+# Technical features: {features}
+
+# Please provide a critique of the image, pointing out strengths and weaknesses.
+# Include suggestions to improve the photo. Format clearly.
+# """
     payload = {
         "model": "deepseek/deepseek-r1-0528:free",
         "messages": [{"role": "user", "content": prompt}],
