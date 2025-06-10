@@ -29,7 +29,8 @@ Include suggestions to improve the photo. Format clearly.
         "model": "deepseek/deepseek-r1-0528:free",
         "messages": [{"role": "user", "content": prompt}],
         "max_tokens": 10000,
-        "temperature": 0.7
+        "temperature": 0.7,
+        "top_p": 0.9
     }
 
     res = requests.post(OPENROUTER_API_URL, headers=HEADERS, json=payload)
