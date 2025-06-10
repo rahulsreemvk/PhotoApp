@@ -4,7 +4,7 @@ from PIL import Image
 import os
 
 # --- Backend API for GPU processing ---
-API_URL = "https://5e0f-172-83-13-4.ngrok-free.app/analyze/"  # Replace with real IP
+API_URL = " https://3fff-172-83-13-4.ngrok-free.app/analyze/"  # Replace with real IP
 
 # --- OpenRouter API Config ---
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -29,7 +29,8 @@ Include suggestions to improve the photo. Format clearly.
         "model": "deepseek/deepseek-r1-0528:free",
         "messages": [{"role": "user", "content": prompt}],
         "max_tokens": 10000,
-        "temperature": 0.7
+        "temperature": 0.7,
+        "top_p": 0.9
     }
 
     res = requests.post(OPENROUTER_API_URL, headers=HEADERS, json=payload)
@@ -45,29 +46,35 @@ if uploaded:
     image = Image.open(uploaded).convert("RGB")
     st.image(image, caption="Uploaded Image", use_column_width=True)
 
-    # Send to backend
+    # 🔧 CHANGED: Use uploaded.read() instead of .getvalue()
+    image_bytes = uploaded.read()  # 🔧 Needed for proper UploadFile compatibility
+
     with st.spinner("Analyzing with CLIP & BLIP..."):
-        files = {"file": uploaded.getvalue()}
-        res = requests.post(API_URL, files=files)
+        try:
+            # ✅ Send raw bytes in file upload format
+            files = {"file": (uploaded.name, image_bytes, uploaded.type)}  # ✅ ADDED
+            res = requests.post(API_URL, files=files)
+            res.raise_for_status()  # ✅ ADDED: Ensure we catch bad responses
 
-    if res.status_code == 200:
-        data = res.json()
-        caption = data["caption"]
-        score = data["score"]
-        features = data["features"]
+            data = res.json()
+            caption = data["caption"]
+            score = data["score"]
+            features = data["features"]
 
-        st.markdown("### 📝 Caption")
-        st.write(caption)
-        st.markdown("### 🌟 Aesthetic Score")
-        st.write(score)
-        st.markdown("### 🔍 Visual Features")
-        st.json(features)
+            st.markdown("### 📝 Caption")
+            st.write(caption)
+            st.markdown("### 🌟 Aesthetic Score")
+            st.write(score)
+            st.markdown("### 🔍 Visual Features")
+            st.json(features)
 
-        # Critique from DeepSeek
-        with st.spinner("Getting AI Critique..."):
-            critique = get_critique_from_openrouter(features, caption, score)
+            with st.spinner("Getting AI Critique..."):
+                critique = get_critique_from_openrouter(features, caption, score)
 
-        st.markdown("### 🤖 Critique")
-        st.markdown(critique)
-    else:
-        st.error(f"Error: {res.json().get('error')}")
+            st.markdown("### 🤖 Critique")
+            st.markdown(critique)
+
+        except requests.RequestException as e:
+            st.error(f"Request failed: {e}")  # ✅ Better error handling
+        except Exception as e:
+            st.error(f"Unexpected error: {str(e)}")  # ✅ Broader catch
