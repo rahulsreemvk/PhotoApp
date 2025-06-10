@@ -75,8 +75,8 @@ if uploaded:
         st.write(caption)
         st.markdown("### 🌟 Aesthetic Score")
         st.write(score)
-        # st.markdown("### 🔍 Visual Features")
-        # st.json(features)
+        st.markdown("### 🔍 Visual Features")
+        st.json(features)
 
         # Critique from DeepSeek
         with st.spinner("Getting AI Critique..."):
