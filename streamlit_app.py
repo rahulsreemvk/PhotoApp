@@ -46,7 +46,7 @@ if uploaded:
     st.image(image, caption="Uploaded Image", use_column_width=True)
 
     # Send to backend
-    with st.spinner("Analyzing with CLIP & BLIP..."):
+    with st.spinner("Analyzing..."):
         files = {"file": uploaded.getvalue()}
         res = requests.post(API_URL, files=files)
 
