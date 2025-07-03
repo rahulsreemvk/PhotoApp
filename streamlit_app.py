@@ -3,18 +3,16 @@ import requests
 from PIL import Image
 import os
 
-# --- Backend API for GPU processing ---
-API_URL = "https://0e97-172-83-13-4.ngrok-free.app/analyze/"  # Replace with real IP
-
-# --- OpenRouter API Config ---
+# --- Backend and OpenRouter Config ---
+API_URL = "https://0e97-172-83-13-4.ngrok-free.app/analyze/"  # Replace with current backend
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
-API_KEY = os.getenv("OPENROUTER_API_KEY")  # Store in secrets or env
+API_KEY = os.getenv("OPENROUTER_API_KEY")
 HEADERS = {
     "Authorization": f"Bearer {API_KEY}",
     "Content-Type": "application/json"
 }
 
-# --- DeepSeek Prompt Function ---
+# --- Step 1: Initial AI Critique ---
 def get_critique_from_openrouter(features, caption, score):
     prompt = f"""
 You are a professional photography critic analyzing a photograph of {caption}.
@@ -31,58 +29,133 @@ Begin with a 1-10 rating, and follow with a short but insightful critique that a
 Technical features:
 {features}
 """
-#     prompt = f"""
-# You are a professional photography critic.
-# Here is a photo description: "{caption}"
-# Aesthetic score: {score}/10
-# Technical features: {features}
-
-# Please provide a critique of the image, pointing out strengths and weaknesses.
-# Include suggestions to improve the photo. Format clearly.
-# """
     payload = {
         "model": "deepseek/deepseek-r1-0528:free",
         "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": 10000,
+        "max_tokens": 2000,
         "temperature": 0.7
     }
-
     res = requests.post(OPENROUTER_API_URL, headers=HEADERS, json=payload)
     res.raise_for_status()
     return res.json()["choices"][0]["message"]["content"]
 
-# --- Streamlit UI ---
-st.title("📷 AI Photo Critique")
+# --- Step 2: Handle Follow-up Questions ---
+def ask_about_photo(user_question, features, critique, score, context):
+    visual_description = "\n".join([
+        f"{key.replace('_', ' ').capitalize()}: {value}" for key, value in features.items()
+    ])
+    prompt = f"""
+You are a professional photo editor and photography critic. You previously analyzed a photo and gave it a score of {score:.2f}/10.
 
-uploaded = st.file_uploader("Upload your photo", type=["jpg", "jpeg", "png"])
+Context of the photo: "{context}"
 
-if uploaded:
-    image = Image.open(uploaded).convert("RGB")
-    st.image(image, caption="Uploaded Image", use_column_width=True)
+You said:
+{critique}
 
-    # Send to backend
-    with st.spinner("Analyzing..."):
-        files = {"file": uploaded.getvalue()}
-        res = requests.post(API_URL, files=files)
+Here are the extracted visual characteristics:
+{visual_description}
 
-    if res.status_code == 200:
-        data = res.json()
-        caption = data["caption"]
-        score = data["score"]
-        features = data["features"]
+Now, based on the above information, answer this follow-up question from the user:
+"{user_question}"
 
-        st.markdown("### 📝 Caption")
-        st.write(caption)
-        st.markdown("### 🌟 Aesthetic Score")
-        st.write(score)
-        # st.markdown("### 🔍 Visual Features")
-        # st.json(features)
+If the question asks for improvements, give specific suggestions (e.g., "increase brightness to ~130", or "use warmer color temperature", or "target edge density around 0.3").
+You can also suggest LUTs, color grading styles, or artistic edits.
 
-        # Critique from DeepSeek
-        with st.spinner("Getting AI Critique..."):
-            critique = get_critique_from_openrouter(features, caption, score)
+Be clear, concise, and avoid repeating the full critique unless necessary.
+"""
+    payload = {
+        "model": "deepseek/deepseek-r1-0528:free",
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": 1200,
+        "temperature": 0.7
+    }
+    res = requests.post(OPENROUTER_API_URL, headers=HEADERS, json=payload)
+    res.raise_for_status()
+    return res.json()["choices"][0]["message"]["content"]
 
-        st.markdown("### 🤖 Critique")
-        st.markdown(critique)
-    else:
-        st.error(f"Error: {res.json().get('error')}")
+# --- Step 3: Session Setup ---
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+
+if "photo_uploaded" not in st.session_state:
+    st.session_state.photo_uploaded = False
+
+if "caption" not in st.session_state:
+    st.session_state.caption = ""
+
+if "score" not in st.session_state:
+    st.session_state.score = 0.0
+
+if "features" not in st.session_state:
+    st.session_state.features = {}
+
+if "critique" not in st.session_state:
+    st.session_state.critique = ""
+
+# --- Step 4: UI Structure ---
+st.title("📷 AI Photo Critique + Editing Assistant")
+
+if not st.session_state.photo_uploaded:
+    uploaded = st.file_uploader("Upload your photo", type=["jpg", "jpeg", "png"])
+
+    if uploaded:
+        image = Image.open(uploaded).convert("RGB")
+        st.image(image, caption="Uploaded Image", use_column_width=True)
+
+        with st.spinner("Analyzing photo..."):
+            files = {"file": uploaded.getvalue()}
+            res = requests.post(API_URL, files=files)
+
+        if res.status_code == 200:
+            data = res.json()
+            st.session_state.caption = data["caption"]
+            st.session_state.score = data["score"]
+            st.session_state.features = data["features"]
+
+            with st.spinner("Getting expert critique..."):
+                st.session_state.critique = get_critique_from_openrouter(
+                    st.session_state.features,
+                    st.session_state.caption,
+                    st.session_state.score
+                )
+
+            st.session_state.chat_history.append({
+                "role": "system",
+                "message": f"📝 **Caption**: {st.session_state.caption}\n\n🌟 **Aesthetic Score**: {st.session_state.score}\n\n📋 **Critique**:\n{st.session_state.critique}"
+            })
+
+            st.session_state.photo_uploaded = True
+        else:
+            st.error("❌ Error analyzing the photo.")
+else:
+    # Display previous chat
+    st.markdown("### 🧠 AI Assistant Chat")
+    for msg in st.session_state.chat_history:
+        if msg["role"] == "user":
+            st.markdown(f"👤 **You:** {msg['message']}")
+        else:
+            st.markdown(f"🤖 **AI:** {msg['message']}")
+
+    # Follow-up input
+    user_input = st.text_input("Ask something about the photo, editing tips, or enhancement methods:")
+
+    if user_input:
+        st.session_state.chat_history.append({"role": "user", "message": user_input})
+        with st.spinner("AI thinking..."):
+            ai_response = ask_about_photo(
+                user_input,
+                st.session_state.features,
+                st.session_state.critique,
+                st.session_state.score,
+                st.session_state.caption
+            )
+        st.session_state.chat_history.append({"role": "system", "message": ai_response})
+        st.experimental_rerun()
+
+    st.markdown("---")
+    st.markdown("📤 Want to start over? Upload a new or edited photo:")
+
+    new_upload = st.file_uploader("Upload new image", type=["jpg", "jpeg", "png"], key="new_photo")
+    if new_upload:
+        st.session_state.clear()
+        st.experimental_rerun()
