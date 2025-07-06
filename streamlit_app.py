@@ -99,7 +99,7 @@ if not st.session_state.photo_uploaded:
 
     if uploaded:
         image = Image.open(uploaded).convert("RGB")
-        st.image(image, caption="Uploaded Image", use_column_width=True)
+        st.image(image, caption="Uploaded Image", use_container_width=True)
 
         with st.spinner("Analyzing..."):
             files = {"file": uploaded.getvalue()}
@@ -156,7 +156,43 @@ else:
 
     st.markdown("---")
     st.subheader("📤 Upload a new or edited photo to restart")
-    new_photo = st.file_uploader("New image", type=["jpg", "jpeg", "png"], key="reset_upload")
+
+    new_photo = st.file_uploader("Upload another version or a new image", type=["jpg", "jpeg", "png"], key="next_upload")
+
     if new_photo:
+        image = Image.open(new_photo).convert("RGB")
+        st.image(image, caption="Uploaded Image", use_column_width=True)
+
+        with st.spinner("Analyzing..."):
+            files = {"file": new_photo.getvalue()}
+            res = requests.post(API_URL, files=files)
+
+        if res.status_code == 200:
+            data = res.json()
+            caption = data["caption"]
+            score = data["score"]
+            features = data["features"]
+
+            with st.spinner("Getting AI critique..."):
+                critique = get_critique_from_openrouter(features, caption, score)
+
+            st.session_state.chat_history.append({
+                "role": "ai",
+                "message": f"**📷 New Image Analyzed**\n\n**📝 Caption:** {caption}\n\n**🌟 Score:** {score}\n\n**🤖 Critique:**\n{critique}"
+            })
+
+            # Store latest for future follow-ups
+            st.session_state.caption = caption
+            st.session_state.score = score
+            st.session_state.features = features
+            st.session_state.critique = critique
+
+            st.rerun()
+        else:
+            st.error("Failed to analyze the new image.")
+
+    # Add manual reset button
+    if st.button("🔄 Reset App"):
         st.session_state.clear()
         st.rerun()
+
