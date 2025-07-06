@@ -161,7 +161,7 @@ else:
 
     if new_photo:
         image = Image.open(new_photo).convert("RGB")
-        st.image(image, caption="Uploaded Image", use_column_width=True)
+        st.image(image, caption="Uploaded Image", use_container_width=True)
 
         with st.spinner("Analyzing..."):
             files = {"file": new_photo.getvalue()}
