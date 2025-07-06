@@ -33,7 +33,7 @@ Technical features:
     payload = {
         "model": "deepseek/deepseek-r1-0528:free",
         "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": 1500,
+        "max_tokens": 10000,
         "temperature": 0.7
     }
     res = requests.post(OPENROUTER_API_URL, headers=HEADERS, json=payload)
@@ -65,7 +65,7 @@ Be clear, concise, and avoid repeating the full critique unless necessary.
     payload = {
         "model": "deepseek/deepseek-r1-0528:free",
         "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": 1200,
+        "max_tokens": 10000,
         "temperature": 0.7
     }
     res = requests.post(OPENROUTER_API_URL, headers=HEADERS, json=payload)
@@ -149,11 +149,11 @@ else:
                 st.session_state.caption
             )
         st.session_state.chat_history.append({"role": "ai", "message": ai_reply})
-        st.experimental_rerun()
+        st.rerun()
 
     st.markdown("---")
     st.subheader("📤 Upload a new or edited photo to restart")
     new_photo = st.file_uploader("New image", type=["jpg", "jpeg", "png"], key="reset_upload")
     if new_photo:
         st.session_state.clear()
-        st.experimental_rerun()
+        st.rerun()
