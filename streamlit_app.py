@@ -44,15 +44,27 @@ Technical features:
         "max_tokens": 20000,
         "temperature": 0.7
     }
-    try:
-        res = requests.post(OPENROUTER_API_URL, headers=HEADERS, json=payload)
-        res.raise_for_status()
-    except requests.exceptions.HTTPError as e:
-        if res.status_code == 429:
-            st.error("⚠️ Too many requests. Please wait a few seconds before trying again.")
-            st.stop()
-        else:
-            raise e
+    # Implement retry logic for rate limiting
+    retries = 3
+    backoff = 5  # seconds
+    for attempt in range(retries):
+        try:
+            res = requests.post(OPENROUTER_API_URL, headers=HEADERS, json=payload)
+            res.raise_for_status()
+            st.session_state.last_openrouter_call = time.time()
+            return res.json()["choices"][0]["message"]["content"]
+
+        except requests.exceptions.HTTPError as e:
+            if res.status_code == 429:
+                if attempt < retries - 1:
+                    wait_time = backoff * (attempt + 1)
+                    st.warning(f"Too many requests. Retrying in {wait_time} seconds...")
+                    time.sleep(wait_time)
+                else:
+                    st.error("⚠️ Too many requests. Please wait and try again.")
+                    st.stop()
+            else:
+                raise e
     # res = requests.post(OPENROUTER_API_URL, headers=HEADERS, json=payload)
     # res.raise_for_status()
     return res.json()["choices"][0]["message"]["content"]
@@ -89,15 +101,27 @@ Be clear, concise, and avoid repeating the full critique unless necessary.
         "max_tokens": 20000,
         "temperature": 0.7
     }
-    try:
-        res = requests.post(OPENROUTER_API_URL, headers=HEADERS, json=payload)
-        res.raise_for_status()
-    except requests.exceptions.HTTPError as e:
-        if res.status_code == 429:
-            st.error("⚠️ Too many requests. Please wait a few seconds before trying again.")
-            st.stop()
-        else:
-            raise e
+    # Implement retry logic for rate limiting
+    retries = 3
+    backoff = 5  # seconds
+    for attempt in range(retries):
+        try:
+            res = requests.post(OPENROUTER_API_URL, headers=HEADERS, json=payload)
+            res.raise_for_status()
+            st.session_state.last_openrouter_call = time.time()
+            return res.json()["choices"][0]["message"]["content"]
+
+        except requests.exceptions.HTTPError as e:
+            if res.status_code == 429:
+                if attempt < retries - 1:
+                    wait_time = backoff * (attempt + 1)
+                    st.warning(f"Too many requests. Retrying in {wait_time} seconds...")
+                    time.sleep(wait_time)
+                else:
+                    st.error("⚠️ Too many requests. Please wait and try again.")
+                    st.stop()
+            else:
+                raise e
     # res = requests.post(OPENROUTER_API_URL, headers=HEADERS, json=payload)
     # res.raise_for_status()
     return res.json()["choices"][0]["message"]["content"]
