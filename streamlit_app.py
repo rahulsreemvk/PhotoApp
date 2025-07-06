@@ -2,6 +2,9 @@ import streamlit as st
 import requests
 from PIL import Image
 import os
+from PIL import ImageEnhance, ImageOps
+import re
+
 
 # --- Backend API for GPU processing ---
 API_URL = "https://73c6-172-83-13-4.ngrok-free.app/analyze/"  # Replace with real IP
@@ -72,6 +75,25 @@ Be clear, concise, and avoid repeating the full critique unless necessary.
     res.raise_for_status()
     return res.json()["choices"][0]["message"]["content"]
 
+def extract_value(text, pattern, default=1.0):
+    match = re.search(pattern, text, re.IGNORECASE)
+    if match:
+        return float(match.group(1))
+    return default
+
+def apply_suggestions_to_image(image, suggestion_text):
+    brightness = extract_value(suggestion_text, r'brightness.*?(\d+(\.\d+)?)', default=1.0)
+    sharpness = extract_value(suggestion_text, r'sharpness.*?(\d+(\.\d+)?)', default=1.0)
+    contrast = extract_value(suggestion_text, r'contrast.*?(\d+(\.\d+)?)', default=1.0)
+    
+    # Apply enhancements step by step
+    image = ImageEnhance.Brightness(image).enhance(brightness)
+    image = ImageEnhance.Sharpness(image).enhance(sharpness)
+    image = ImageEnhance.Contrast(image).enhance(contrast)
+
+    return image
+
+
 # --- Session State Initialization ---
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
@@ -90,6 +112,10 @@ if "score" not in st.session_state:
 
 if "critique" not in st.session_state:
     st.session_state.critique = ""
+
+if "last_suggestion_text" not in st.session_state:
+    st.session_state.last_suggestion_text = ""
+
 
 # --- Main App UI ---
 st.title("📷 AI Photo Critique & Editing Assistant")
@@ -152,7 +178,14 @@ else:
                 st.session_state.caption
             )
         st.session_state.chat_history.append({"role": "ai", "message": ai_reply})
+        st.session_state.last_suggestion_text = ai_reply  # Save for potential editing
         st.rerun()
+
+    if st.session_state.last_suggestion_text:
+        if st.button("🔧 Apply Suggested Edits & Show Preview"):
+            # Reload the original uploaded image (initial one)
+            edited_image = apply_suggestions_to_image(image, st.session_state.last_suggestion_text)
+            st.image(edited_image, caption="Edited Image Preview", use_container_width=True)
 
     st.markdown("---")
     st.subheader("📤 Upload a new or edited photo to restart")
