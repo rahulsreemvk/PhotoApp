@@ -2,9 +2,10 @@ import streamlit as st
 import requests
 from PIL import Image
 import os
-from PIL import ImageEnhance, ImageOps
+from PIL import ImageEnhance
+from PIL import ImageOps
 import re
-
+import time
 
 # --- Backend API for GPU processing ---
 API_URL = "https://9556-172-83-13-4.ngrok-free.app/analyze/"  # Replace with real IP
@@ -39,8 +40,17 @@ Technical features:
         "max_tokens": 20000,
         "temperature": 0.7
     }
-    res = requests.post(OPENROUTER_API_URL, headers=HEADERS, json=payload)
-    res.raise_for_status()
+    try:
+        res = requests.post(OPENROUTER_API_URL, headers=HEADERS, json=payload)
+        res.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        if res.status_code == 429:
+            st.error("⚠️ Too many requests. Please wait a few seconds before trying again.")
+            st.stop()
+        else:
+            raise e
+    # res = requests.post(OPENROUTER_API_URL, headers=HEADERS, json=payload)
+    # res.raise_for_status()
     return res.json()["choices"][0]["message"]["content"]
 
 # --- Follow-up QA Prompt ---
@@ -71,8 +81,17 @@ Be clear, concise, and avoid repeating the full critique unless necessary.
         "max_tokens": 20000,
         "temperature": 0.7
     }
-    res = requests.post(OPENROUTER_API_URL, headers=HEADERS, json=payload)
-    res.raise_for_status()
+    try:
+        res = requests.post(OPENROUTER_API_URL, headers=HEADERS, json=payload)
+        res.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        if res.status_code == 429:
+            st.error("⚠️ Too many requests. Please wait a few seconds before trying again.")
+            st.stop()
+        else:
+            raise e
+    # res = requests.post(OPENROUTER_API_URL, headers=HEADERS, json=payload)
+    # res.raise_for_status()
     return res.json()["choices"][0]["message"]["content"]
 
 def extract_value(text, pattern, default=1.0):
@@ -115,6 +134,9 @@ if "critique" not in st.session_state:
 
 if "last_suggestion_text" not in st.session_state:
     st.session_state.last_suggestion_text = ""
+
+if "last_openrouter_call" not in st.session_state:
+    st.session_state.last_openrouter_call = 0
 
 
 # --- Main App UI ---
