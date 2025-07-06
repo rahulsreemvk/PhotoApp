@@ -36,7 +36,7 @@ Technical features:
     payload = {
         "model": "deepseek/deepseek-r1-0528:free",
         "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": 10000,
+        "max_tokens": 20000,
         "temperature": 0.7
     }
     res = requests.post(OPENROUTER_API_URL, headers=HEADERS, json=payload)
@@ -68,7 +68,7 @@ Be clear, concise, and avoid repeating the full critique unless necessary.
     payload = {
         "model": "deepseek/deepseek-r1-0528:free",
         "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": 10000,
+        "max_tokens": 20000,
         "temperature": 0.7
     }
     res = requests.post(OPENROUTER_API_URL, headers=HEADERS, json=payload)
