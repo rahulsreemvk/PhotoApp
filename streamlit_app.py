@@ -4,7 +4,7 @@ from PIL import Image
 import os
 
 # --- Backend and OpenRouter Config ---
-API_URL = "https://0e97-172-83-13-4.ngrok-free.app/analyze/"  # Replace with current backend
+API_URL = "https://73c6-172-83-13-4.ngrok-free.app/analyze/"  # Replace with current backend
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 API_KEY = os.getenv("OPENROUTER_API_KEY")
 HEADERS = {
