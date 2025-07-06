@@ -137,8 +137,11 @@ else:
             st.markdown(f"**🤖 AI:** {chat['message']}")
 
     # Input Box for Follow-up
-    user_input = st.text_input("Ask about editing, enhancement, parameters, LUTs...", key="chat_input")
-    if user_input:
+    with st.form("chat_form", clear_on_submit=True):
+        user_input = st.text_input("Ask about editing, enhancement, parameters, LUTs...", key="chat_input")
+        submitted = st.form_submit_button("Send")
+
+    if submitted and user_input:
         st.session_state.chat_history.append({"role": "user", "message": user_input})
         with st.spinner("Thinking..."):
             ai_reply = ask_about_photo(
