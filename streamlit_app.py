@@ -7,7 +7,7 @@ import re
 
 
 # --- Backend API for GPU processing ---
-API_URL = "https://73c6-172-83-13-4.ngrok-free.app/analyze/"  # Replace with real IP
+API_URL = "https://9556-172-83-13-4.ngrok-free.app/analyze/"  # Replace with real IP
 
 # --- OpenRouter API Config ---
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
