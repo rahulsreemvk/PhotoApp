@@ -124,7 +124,7 @@ if not st.session_state.photo_uploaded:
             })
 
             st.session_state.photo_uploaded = True
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.error("Analysis failed. Please try again.")
 else:
