@@ -34,6 +34,10 @@ Begin with a 1-10 rating, and follow with a short but insightful critique that a
 Technical features:
 {features}
 """
+    if time.time() - st.session_state.last_openrouter_call < 5:
+        st.warning("⏳ Please wait a few seconds before retrying.")
+        st.stop()
+
     payload = {
         "model": "deepseek/deepseek-r1-0528:free",
         "messages": [{"role": "user", "content": prompt}],
@@ -75,6 +79,10 @@ You can also suggest LUTs, color grading styles, or artistic edits.
 
 Be clear, concise, and avoid repeating the full critique unless necessary.
 """
+    if time.time() - st.session_state.last_openrouter_call < 5:
+        st.warning("⏳ Please wait a few seconds before retrying.")
+        st.stop()
+        
     payload = {
         "model": "deepseek/deepseek-r1-0528:free",
         "messages": [{"role": "user", "content": prompt}],
