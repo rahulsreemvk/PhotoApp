@@ -126,6 +126,40 @@ Be clear, concise, and avoid repeating the full critique unless necessary.
     # res.raise_for_status()
     return res.json()["choices"][0]["message"]["content"]
 
+def ask_for_edit_json(critique_text):
+    prompt = f"""
+Based on the following critique, return a JSON object with precise values for image editing. Use the format below, and do not include any commentary.
+
+### CRITIQUE:
+{critique_text}
+
+### RETURN ONLY JSON:
+{{
+  "crop": {{ "rule_of_thirds": true }},
+  "brightness": 1.1,
+  "contrast": 1.2,
+  "sharpness": 1.3,
+  "saturation": 1.4,
+  "color_balance": {{ "red": 1.0, "green": 0.95, "blue": 1.05 }},
+  "white_balance": 5600,
+  "color_grading": "golden_hour",
+  "blur": {{ "background": 12, "subject": 0 }},
+  "vignette": 0.3,
+  "subject_position": "center"
+}}
+"""
+
+    payload = {
+        "model": "deepseek/deepseek-r1-0528:free",
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": 10000,
+        "temperature": 0.5
+    }
+
+    res = requests.post(OPENROUTER_API_URL, headers=HEADERS, json=payload)
+    res.raise_for_status()
+    return res.json()["choices"][0]["message"]["content"]
+
 def extract_value(text, pattern, default=1.0):
     match = re.search(pattern, text, re.IGNORECASE)
     if match:
@@ -165,6 +199,62 @@ def apply_suggestions_to_image(image, suggestion_text):
 
     # Vignette
     image = apply_vignette(image)
+
+    return image
+
+def apply_edits_from_json(image, json_params):
+    import numpy as np
+    import cv2
+    import json
+
+    if isinstance(json_params, str):
+        try:
+            json_params = json.loads(json_params)
+        except:
+            st.error("❌ Failed to parse JSON.")
+            return image
+
+    # Crop (Rule of Thirds – Simple Center Crop)
+    if json_params.get("crop", {}).get("rule_of_thirds"):
+        w, h = image.size
+        crop_size = int(min(w, h) * 0.8)
+        left = (w - crop_size) // 2
+        top = (h - crop_size) // 2
+        image = image.crop((left, top, left + crop_size, top + crop_size))
+
+    # Enhancements
+    enhancers = {
+        "brightness": ImageEnhance.Brightness,
+        "contrast": ImageEnhance.Contrast,
+        "sharpness": ImageEnhance.Sharpness
+    }
+    for key, enhancer in enhancers.items():
+        image = enhancer(image).enhance(json_params.get(key, 1.0))
+
+    # Saturation
+    img_np = np.array(image)
+    hsv = cv2.cvtColor(img_np, cv2.COLOR_RGB2HSV).astype(np.float32)
+    hsv[..., 1] *= json_params.get("saturation", 1.0)
+    hsv[..., 1] = np.clip(hsv[..., 1], 0, 255)
+    img_np = cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2RGB)
+    image = Image.fromarray(img_np)
+
+    # Color Balance
+    balance = json_params.get("color_balance", {})
+    r, g, b = balance.get("red", 1.0), balance.get("green", 1.0), balance.get("blue", 1.0)
+    img_np = np.array(image).astype(np.float32)
+    img_np[..., 0] *= r
+    img_np[..., 1] *= g
+    img_np[..., 2] *= b
+    img_np = np.clip(img_np, 0, 255)
+    image = Image.fromarray(img_np.astype(np.uint8))
+
+    # White Balance – placeholder logic (use LUT in advanced)
+    kelvin = json_params.get("white_balance", 5500)
+    image = ImageEnhance.Color(image).enhance(1.0 if 5000 <= kelvin <= 6500 else 0.95)
+
+    # Vignette
+    image = apply_vignette(image, json_params.get("vignette", 0.3))
 
     return image
 
@@ -275,11 +365,12 @@ else:
         st.rerun()
 
     if st.session_state.last_suggestion_text:
-        if st.button("🔧 Apply Suggested Edits & Show Preview"):
-            # Reload the original uploaded image (initial one)
-            edited_image = apply_suggestions_to_image(st.session_state.original_image.copy(),
-                                                       st.session_state.last_suggestion_text)
-            st.image(edited_image, caption="Edited Image Preview", use_container_width=True)
+        if st.button("🔧 Apply AI Edits Based on Critique"):
+            with st.spinner("Parsing AI edits..."):
+                json_edit_text = ask_for_edit_json(st.session_state.last_suggestion_text)
+                edited_image = apply_edits_from_json(st.session_state.original_image.copy(), json_edit_text)
+                st.image(edited_image, caption="Edited Image (AI Suggestions)", use_container_width=True)
+
 
     st.markdown("---")
     st.subheader("📤 Upload a new or edited photo to restart")
