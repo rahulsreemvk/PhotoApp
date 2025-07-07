@@ -180,6 +180,7 @@ if not st.session_state.photo_uploaded:
     if uploaded:
         image = Image.open(uploaded).convert("RGB")
         st.image(image, caption="Uploaded Image", use_container_width=True)
+        st.session_state.original_image = image.copy()
 
         with st.spinner("Analyzing..."):
             files = {"file": uploaded.getvalue()}
@@ -249,6 +250,7 @@ else:
     if new_photo:
         image = Image.open(new_photo).convert("RGB")
         st.image(image, caption="Uploaded Image", use_container_width=True)
+        st.session_state.original_image = image.copy()
 
         with st.spinner("Analyzing..."):
             files = {"file": new_photo.getvalue()}
