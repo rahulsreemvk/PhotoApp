@@ -133,16 +133,54 @@ def extract_value(text, pattern, default=1.0):
     return default
 
 def apply_suggestions_to_image(image, suggestion_text):
-    brightness = extract_value(suggestion_text, r'brightness.*?(\d+(\.\d+)?)', default=1.0)
-    sharpness = extract_value(suggestion_text, r'sharpness.*?(\d+(\.\d+)?)', default=1.0)
-    contrast = extract_value(suggestion_text, r'contrast.*?(\d+(\.\d+)?)', default=1.0)
-    
-    # Apply enhancements step by step
+    import numpy as np
+    import cv2
+    from PIL import ImageEnhance
+
+    def extract_value(text, pattern, default=1.0, min_val=0.5, max_val=2.0):
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            val = float(match.group(1))
+            return max(min(val, max_val), min_val)  # clamp
+        return default
+
+    # Extract & Clamp
+    brightness = extract_value(suggestion_text, r'brightness.*?(\d+(\.\d+)?)', 1.0, 0.5, 2.0)
+    contrast   = extract_value(suggestion_text, r'contrast.*?(\d+(\.\d+)?)', 1.0, 0.5, 2.5)
+    sharpness  = extract_value(suggestion_text, r'sharpness.*?(\d+(\.\d+)?)', 1.0, 0.5, 3.0)
+    saturation = extract_value(suggestion_text, r'saturation.*?(\d+(\.\d+)?)', 1.0, 0.5, 2.0)
+
+    # Basic Enhancements
     image = ImageEnhance.Brightness(image).enhance(brightness)
-    image = ImageEnhance.Sharpness(image).enhance(sharpness)
     image = ImageEnhance.Contrast(image).enhance(contrast)
+    image = ImageEnhance.Sharpness(image).enhance(sharpness)
+
+    # Optional: Saturation (via HSV)
+    img_np = np.array(image)
+    hsv = cv2.cvtColor(img_np, cv2.COLOR_RGB2HSV).astype(np.float32)
+    hsv[..., 1] *= saturation
+    hsv[..., 1] = np.clip(hsv[..., 1], 0, 255)
+    img_np = cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2RGB)
+    image = Image.fromarray(img_np)
+
+    # Vignette
+    image = apply_vignette(image)
 
     return image
+
+def apply_vignette(image, strength=0.3):
+    import cv2
+    import numpy as np
+    width, height = image.size
+    kernel_x = cv2.getGaussianKernel(width, width * strength)
+    kernel_y = cv2.getGaussianKernel(height, height * strength)
+    kernel = kernel_y * kernel_x.T
+    mask = 255 * kernel / np.max(kernel)
+    vignette = np.dstack([mask] * 3)
+    img = np.array(image).astype(np.float32)
+    img = img * (vignette / 255)
+    return Image.fromarray(np.clip(img, 0, 255).astype(np.uint8))
+
 
 
 # --- Session State Initialization ---
