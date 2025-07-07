@@ -239,7 +239,8 @@ else:
     if st.session_state.last_suggestion_text:
         if st.button("🔧 Apply Suggested Edits & Show Preview"):
             # Reload the original uploaded image (initial one)
-            edited_image = apply_suggestions_to_image(image, st.session_state.last_suggestion_text)
+            edited_image = apply_suggestions_to_image(st.session_state.original_image.copy(),
+                                                       st.session_state.last_suggestion_text)
             st.image(edited_image, caption="Edited Image Preview", use_container_width=True)
 
     st.markdown("---")
