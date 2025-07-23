@@ -8,7 +8,7 @@ import re
 import time
 
 # --- Backend API for GPU processing ---
-API_URL = "https://80737aeae8c6.ngrok-free.app/analyze/"  # Replace with real IP
+API_URL = " https://25220342d3ac.ngrok-free.app/pixel-analyze/"  # Replace with real IP
 
 # --- OpenRouter API Config ---
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
