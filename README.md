@@ -42,9 +42,9 @@ LLM:
 
 ---
 
-### How to run it on your own machine
+### How to run it
 
-1. Install the requirements
+1. Install the dependencies/requirements
 
    ```
    $ pip install -r requirements.txt
@@ -56,6 +56,32 @@ LLM:
    $ streamlit run streamlit_app.py
    ```
 
-## ⚙ Setup
+   
+### 3. Configure environment in paperspace
+Create `.env` file based on `.env.example`
 
-### 1. Clone Repo
+### 4. Run Backend
+uvicorn backend.inference_api:app --reload --host 0.0.0.0 --port 8000
+
+
+### 5. Run Frontend
+streamlit run app/streamlit_app.py
+
+
+---
+
+## 🔬 Current Status
+
+⚠️ Research Prototype – Not Production Ready
+
+See `docs/roadmap.md` for upcoming improvements.
+
+---
+
+## 📜 License
+
+MIT License
+
+
+
+
