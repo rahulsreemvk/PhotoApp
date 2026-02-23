@@ -23,6 +23,7 @@ DeepSeek returns structured JSON:
 }
 
 ## Step 4: Local Edit Application
+- Crop
 - Mask-based editing
 - Depth-aware blur
 - Color grading
