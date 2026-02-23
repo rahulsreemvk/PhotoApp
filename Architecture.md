@@ -10,21 +10,21 @@
 ## Data Flow
 
 User Upload
-    ↓
+    →
 Backend Feature Extraction
-    ↓
+    →
 Aesthetic Scoring
-    ↓
+    →
 Depth + Segmentation
-    ↓
+    →
 Metadata Summary
-    ↓
+    →
 DeepSeek (Structured Edit JSON)
-    ↓
+    →
 Local Edit Application
-    ↓
+    →
 Preview Options
-    ↓
+    →
 Manual User Tweaks
 
 ---
