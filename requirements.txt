@@ -11,3 +11,8 @@ torchvision
 scikit-learn
 transformers
 mediapipe
+
+fastapi
+uvicorn
+python-dotenv
+tqdm
