@@ -56,16 +56,23 @@ LLM:
    $ streamlit run streamlit_app.py
    ```
 
+### In Paperspace (Backend)
    
-### 3. Configure environment in paperspace
-Create `.env` file based on `.env.example`
+3. Configure environment in Paperspace
 
-### 4. Run Backend
-uvicorn backend.inference_api:app --reload --host 0.0.0.0 --port 8000
+   ```
+   Create `.env` file based on `.env.example`
+   ```
 
+4. Run Backend
+   ```
+   uvicorn backend.inference_api:app --reload --host 0.0.0.0 --port 8000
+   ```
 
-### 5. Run Frontend
-streamlit run app/streamlit_app.py
+5. Run Frontend
+   ```
+   streamlit run app/streamlit_app.py
+   ```
 
 
 ---
@@ -77,11 +84,6 @@ streamlit run app/streamlit_app.py
 See `docs/roadmap.md` for upcoming improvements.
 
 ---
-
-## 📜 License
-
-MIT License
-
 
 
 
